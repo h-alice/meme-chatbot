@@ -75,29 +75,6 @@ func FormatPrompt(prompt string) string {
 	return fmt.Sprintf(CHAT_TEMPLATE, prompt)
 }
 
-/*
-Sample response body:
-{
-  "id": "cmpl-555e840b-6921-44e8-9f6f-ab9fcd859624",
-  "object": "text_completion",
-  "created": 1714891381,
-  "model": "gpt2",
-  "choices": [
-    {
-      "text": "好",
-      "index": 0,
-      "logprobs": null,
-      "finish_reason": "stop"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": 12,
-    "completion_tokens": 1,
-    "total_tokens": 13
-  }
-}
-*/
-
 const SampleResponse = `{
 	"id": "cmpl-555e840b-6921-44e8-9f6f-ab9fcd859624",
 	"object": "text_completion",
