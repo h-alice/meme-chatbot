@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 const CHAT_TEMPLATE = `<start_of_turn>user
@@ -129,7 +130,7 @@ func ParseResponse(response string) LlmResponse {
 // # Connect to server endpoint and send prompt
 //
 // This function connects to the local server and sends the prompt to the model.
-func SendPrompt(server string, port int, endpoint string, param_with_prompt LlmGenerationParameters) string {
+func SendPrompt(server string, port int, endpoint string, param_with_prompt LlmGenerationParameters) (string, error) {
 
 	// Construct the URL
 	url := fmt.Sprintf("http://%s:%d/%s", server, port, endpoint)
@@ -137,15 +138,16 @@ func SendPrompt(server string, port int, endpoint string, param_with_prompt LlmG
 	// Send the prompt to the model
 	resp, err := http.Post(url, "application/json", strings.NewReader(param_with_prompt.ToJSON()))
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
+
 	defer resp.Body.Close() // Close the response body
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
-	return string(body)
+	return string(body), nil
 }
 
 // # Model I/O handler
@@ -165,21 +167,30 @@ func modelIoHandler(ctx context.Context, server string, port int, endpoint strin
 			// Get the user prompt
 			param_with_prompt := <-param_with_prompt_queue
 
-			// Send the prompt to the model
-			response := SendPrompt(server, port, endpoint, param_with_prompt)
+			for {
+				// Send the prompt to the model
+				response, err := SendPrompt(server, port, endpoint, param_with_prompt)
+				if err != nil {
+					log.Println(err)
+					time.Sleep(1 * time.Second)
+					continue
+				}
 
-			// Get the actual response from the model
-			model_output := ParseResponse(response).Choices[0].Text
+				// Get the actual response from the model
+				model_output := ParseResponse(response).Choices[0].Text
 
-			// Send the model response to the response queue
-			model_response_queue <- model_output
+				// Send the model response to the response queue
+				model_response_queue <- model_output
+
+				break
+			}
 		}
 	}
 }
 
 func main() {
 	// Test sending a prompt to the model
-	server := "localhost"
+	server := "backend"
 	port := 8000
 	endpoint := "v1/completions"
 	param_template := LlmGenerationParameters{
@@ -192,7 +203,7 @@ func main() {
 		MaxTokens:     32,
 	}
 
-	ctx, _ := context.WithCancel(context.Background())
+	ctx := context.Background()
 
 	// Create channels.
 	param_with_prompt_queue := make(chan LlmGenerationParameters)
@@ -215,9 +226,6 @@ func main() {
 
 		// Set the prompt
 		param_with_prompt := param_template.SetPrompt(FormatPrompt(user_input))
-
-		// debug print
-		fmt.Println("User input:", param_with_prompt)
 
 		// Send the prompt to the model
 		param_with_prompt_queue <- param_with_prompt
