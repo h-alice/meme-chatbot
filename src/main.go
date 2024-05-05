@@ -132,41 +132,21 @@ type LlmResponse struct {
 	Usage interface{} `json:"usage"`
 }
 
+// # Parse response
+//
+// This function parses the response from the model.
+func ParseResponse(response string) LlmResponse {
+	var llmResponse LlmResponse
+	json.Unmarshal([]byte(response), &llmResponse)
+	return llmResponse
+}
+
+// # Connect to local server and send prompt
+//
+// This function connects to the local server and sends the prompt to the model.
+
 func main() {
-	// # Main function
-	//
-	// This function is the entry point of the program.
-	//
-	// It reads the user input and sends it to the model.
-	//
-	// The model response is then printed to the console.
-	//
-	// The program runs until the user types "exit".
-	for {
-
-		var prompt string
-		fmt.Print("You: ")
-		fmt.Scanln(&prompt)
-
-		if prompt == "exit" {
-			break
-		}
-
-		// Create the generation parameters
-		llmGenerationParameters := LlmGenerationParameters{
-			ModelName:     "gpt2",
-			TopK:          40,
-			TopP:          0.95,
-			RepeatPenalty: 1.1,
-			Temperature:   0.8,
-			Stream:        false,
-			MaxTokens:     64,
-		}
-
-		// Set the prompt
-		llmGenerationParameters.SetPrompt(FormatPrompt(prompt))
-
-		// TODO: Send the prompt to the model
-		log.Print(llmGenerationParameters.ToJSON())
-	}
+	// Test parse
+	llmResponse := ParseResponse(SampleResponse)
+	log.Println(llmResponse)
 }
