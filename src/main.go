@@ -47,6 +47,13 @@ func (lgp *LlmGenerationParameters) CheckAndFix() {
 	}
 }
 
+// # Set the prompt
+//
+// This function sets the prompt to be sent to the model.
+func (lgp *LlmGenerationParameters) SetPrompt(prompt string) {
+	lgp.Prompt = prompt
+}
+
 // # Prompt formatter
 //
 // This function formats the prompt to be sent to the model.
@@ -54,7 +61,7 @@ func (lgp *LlmGenerationParameters) CheckAndFix() {
 // Parameters:
 //
 // - prompt: the user prompt
-func formatPrompt(prompt string) string {
+func FormatPrompt(prompt string) string {
 	return fmt.Sprintf(CHAT_TEMPLATE, prompt)
 }
 
@@ -79,7 +86,7 @@ func main() {
 		}
 
 		// Format the prompt
-		formattedPrompt := formatPrompt(prompt)
+		formattedPrompt := FormatPrompt(prompt)
 
 		// TODO: Send the prompt to the model
 		log.Print(formattedPrompt)
