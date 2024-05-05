@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 const CHAT_TEMPLATE = `<start_of_turn>user
@@ -54,8 +56,11 @@ func (lgp *LlmGenerationParameters) CheckAndFix() {
 // # Set the prompt
 //
 // This function sets the prompt to be sent to the model.
-func (lgp *LlmGenerationParameters) SetPrompt(prompt string) {
+//
+// Note that the SetPrompt return a copy of the generation parameters with the prompt set.
+func (lgp LlmGenerationParameters) SetPrompt(prompt string) LlmGenerationParameters {
 	lgp.Prompt = prompt
+	return lgp
 }
 
 // # To JSON
@@ -124,19 +129,13 @@ func ParseResponse(response string) LlmResponse {
 // # Connect to server endpoint and send prompt
 //
 // This function connects to the local server and sends the prompt to the model.
-func SendPrompt(server string, port int, endpoint string, prompt string, param LlmGenerationParameters) string {
+func SendPrompt(server string, port int, endpoint string, param_with_prompt LlmGenerationParameters) string {
 
 	// Construct the URL
 	url := fmt.Sprintf("http://%s:%d/%s", server, port, endpoint)
 
-	// Format the prompt
-	promptData := FormatPrompt(prompt)
-
-	// Construct the generation parameters
-	param.SetPrompt(promptData)
-
 	// Send the prompt to the model
-	resp, err := http.Post(url, "application/json", strings.NewReader(param.ToJSON()))
+	resp, err := http.Post(url, "application/json", strings.NewReader(param_with_prompt.ToJSON()))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -149,27 +148,84 @@ func SendPrompt(server string, port int, endpoint string, prompt string, param L
 	return string(body)
 }
 
+// # Model I/O handler
+//
+// This function handles the communication between the user prompt queue and the model response queue.
+//
+// Note that the `user_prompt_queue` expects the prompt has been given by the user.
+func modelIoHandler(ctx context.Context, server string, port int, endpoint string, param_with_prompt_queue <-chan LlmGenerationParameters, model_response_queue chan<- string, wg *sync.WaitGroup) {
+
+	defer wg.Done()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			// Get the user prompt
+			param_with_prompt := <-param_with_prompt_queue
+
+			// Send the prompt to the model
+			response := SendPrompt(server, port, endpoint, param_with_prompt)
+
+			// Get the actual response from the model
+			model_output := ParseResponse(response).Choices[0].Text
+
+			// Send the model response to the response queue
+			model_response_queue <- model_output
+		}
+	}
+}
+
 func main() {
 	// Test sending a prompt to the model
 	server := "localhost"
 	port := 8000
 	endpoint := "v1/completions"
-	prompt := "你好"
-	param := LlmGenerationParameters{
-		ModelName:     "gpt2",
-		TopK:          40,
+	param_template := LlmGenerationParameters{
+		ModelName:     "",
+		TopK:          64,
 		TopP:          0.9,
-		RepeatPenalty: 1.3,
-		Temperature:   0.5,
+		RepeatPenalty: 1.2,
+		Temperature:   0.9,
 		Stream:        false,
 		MaxTokens:     32,
 	}
 
-	response := SendPrompt(server, port, endpoint, prompt, param)
+	ctx, _ := context.WithCancel(context.Background())
 
-	// Parse the response
-	llmResponse := ParseResponse(response)
+	// Create channels.
+	param_with_prompt_queue := make(chan LlmGenerationParameters)
+	model_response_queue := make(chan string)
 
-	// Print the response
-	fmt.Println(llmResponse.Choices[0].Text)
+	// Create a wait group.
+	wg := new(sync.WaitGroup)
+
+	// Add the model I/O handler to the wait group.
+	wg.Add(1)
+
+	// Start the model I/O handler.
+	go modelIoHandler(ctx, server, port, endpoint, param_with_prompt_queue, model_response_queue, wg)
+
+	// User cli interaction.
+	for {
+		var user_input string
+		fmt.Print("User: ")
+		fmt.Scanln(&user_input)
+
+		// Set the prompt
+		param_with_prompt := param_template.SetPrompt(FormatPrompt(user_input))
+
+		// debug print
+		fmt.Println("User input:", param_with_prompt)
+
+		// Send the prompt to the model
+		param_with_prompt_queue <- param_with_prompt
+
+		// Get the model response
+		response := <-model_response_queue
+
+		// Print the model response
+		fmt.Println("Model:", response)
+	}
 }
