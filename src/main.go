@@ -11,8 +11,20 @@ const CHAT_TEMPLATE = `<start_of_turn>user
 `
 const CHAT_TEMPLATE_END = "<end_of_turn>"
 
+type LlmChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
 type LlmGenerationParameters struct {
-	MaxTokens int `json:"max_tokens"`
+	ModelName     string           `json:"model"`
+	Messages      []LlmChatMessage `json:"messages"`
+	TopK          int              `json:"top_k"`
+	TopP          float64          `json:"top_p"`
+	RepeatPenalty float64          `json:"repeat_penalty"`
+	Temperature   float64          `json:"temperature"`
+	Stream        bool             `json:"stream"`
+	MaxTokens     int              `json:"max_tokens"`
 }
 
 // # Prompt formatter
