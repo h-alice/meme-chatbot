@@ -7,9 +7,7 @@ services:
       context: docker/llamacpp-python
     ports:
       - "8000:8000"
-    volumes:
-      - ./model-gguf:/models
-    command: ["python3", "-m", "llama_cpp.server", "--model", "/models/${MODEL_NAME}.gguf", "--port", "8000", "--host", "0.0.0.0"]
+    command: ["python3", "-m", "llama_cpp.server", "--hf_model_repo_id", "${MODEL_REPO}", "--model", "${MODEL_NAME}", "--port", "8000", "--host", "0.0.0.0"]
     deploy:
       resources:
         reservations:

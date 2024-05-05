@@ -25,13 +25,16 @@ RUN apt-get update && apt-get upgrade -y \
 
 COPY . .
 
+# Reuse the ARGS from the previous stage.
 ARG LLAMACPP_PYTHON_VERSION
 ARG CUDA_SHORT_VERSION
+
+# Install huggingface-hub.
+RUN pip install huggingface-hub
 
 # Get the llama-cpp prebuilt wheel
 RUN wget https://github.com/abetlen/llama-cpp-python/releases/download/v${LLAMACPP_PYTHON_VERSION}-cu${CUDA_SHORT_VERSION}/llama_cpp_python-${LLAMACPP_PYTHON_VERSION}-cp310-cp310-linux_x86_64.whl
 
-RUN python3 --version
 # Install llama-cpp-python (prebuilt wheel) with server dependencies.
 RUN pip install llama_cpp_python-${LLAMACPP_PYTHON_VERSION}-cp310-cp310-linux_x86_64.whl[server]
 
