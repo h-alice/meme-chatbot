@@ -3,7 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"strings"
 )
 
 const CHAT_TEMPLATE = `<start_of_turn>user
@@ -118,12 +121,55 @@ func ParseResponse(response string) LlmResponse {
 	return llmResponse
 }
 
-// # Connect to local server and send prompt
+// # Connect to server endpoint and send prompt
 //
 // This function connects to the local server and sends the prompt to the model.
+func SendPrompt(server string, port int, endpoint string, prompt string, param LlmGenerationParameters) string {
+
+	// Construct the URL
+	url := fmt.Sprintf("http://%s:%d/%s", server, port, endpoint)
+
+	// Format the prompt
+	promptData := FormatPrompt(prompt)
+
+	// Construct the generation parameters
+	param.SetPrompt(promptData)
+
+	// Send the prompt to the model
+	resp, err := http.Post(url, "application/json", strings.NewReader(param.ToJSON()))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close() // Close the response body
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return string(body)
+}
 
 func main() {
-	// Test parse
-	llmResponse := ParseResponse(SampleResponse)
-	log.Println(llmResponse)
+	// Test sending a prompt to the model
+	server := "localhost"
+	port := 8000
+	endpoint := "v1/completions"
+	prompt := "你好"
+	param := LlmGenerationParameters{
+		ModelName:     "gpt2",
+		TopK:          40,
+		TopP:          0.9,
+		RepeatPenalty: 1.3,
+		Temperature:   0.5,
+		Stream:        false,
+		MaxTokens:     32,
+	}
+
+	response := SendPrompt(server, port, endpoint, prompt, param)
+
+	// Parse the response
+	llmResponse := ParseResponse(response)
+
+	// Print the response
+	fmt.Println(llmResponse.Choices[0].Text)
 }
