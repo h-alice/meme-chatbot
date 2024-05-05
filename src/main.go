@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 )
@@ -54,6 +55,15 @@ func (lgp *LlmGenerationParameters) SetPrompt(prompt string) {
 	lgp.Prompt = prompt
 }
 
+// # To JSON
+//
+// This function converts the generation parameters to a JSON string.
+func (lgp *LlmGenerationParameters) ToJSON() string {
+	lgp.CheckAndFix()
+	jsonData, _ := json.Marshal(lgp)
+	return string(jsonData)
+}
+
 // # Prompt formatter
 //
 // This function formats the prompt to be sent to the model.
@@ -85,10 +95,21 @@ func main() {
 			break
 		}
 
-		// Format the prompt
-		formattedPrompt := FormatPrompt(prompt)
+		// Create the generation parameters
+		llmGenerationParameters := LlmGenerationParameters{
+			ModelName:     "gpt2",
+			TopK:          40,
+			TopP:          0.95,
+			RepeatPenalty: 1.1,
+			Temperature:   0.8,
+			Stream:        false,
+			MaxTokens:     16,
+		}
+
+		// Set the prompt
+		llmGenerationParameters.SetPrompt(FormatPrompt(prompt))
 
 		// TODO: Send the prompt to the model
-		log.Print(formattedPrompt)
+		log.Print(llmGenerationParameters.ToJSON())
 	}
 }
